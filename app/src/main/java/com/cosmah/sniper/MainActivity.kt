@@ -21,7 +21,7 @@ class MainActivity : ComponentActivity() {
             SniperTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     Greeting(
-                        name = "Android",
+                        name = "Cosmah",
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
