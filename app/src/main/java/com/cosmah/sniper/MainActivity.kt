@@ -4,15 +4,24 @@ import android.content.DialogInterface
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCapture.OutputFileOptions
+import androidx.camera.core.Preview
+import androidx.camera.core.resolutionselector.AspectRatioStrategy
+import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.cosmah.sniper.databinding.ActivityMainBinding
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Locale
 import kotlin.math.abs
 
 class MainActivity : ComponentActivity() {
@@ -48,17 +57,23 @@ class MainActivity : ComponentActivity() {
         }
 
         mainBinding.flipCameraIB.setOnClickListener {
-
+            lensFacing = if (lensFacing == CameraSelector.LENS_FACING_FRONT){
+                CameraSelector.LENS_FACING_BACK
+            }else{
+                CameraSelector.LENS_FACING_FRONT
+            }
+            bindCameraUserCases()
         }
 
         mainBinding.captureIB.setOnClickListener {
-
+            takePhoto()
         }
 
         mainBinding.flashToggleIB.setOnClickListener {
-
+            setFlashIcon(camera)
         }
     }
+
 
     private fun checkMultiplePermission(): Boolean {
         val listPermissionNeeded = arrayListOf<String>()
@@ -151,8 +166,90 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun bindCameraUserCases() {
-        val screenAspectRatio =
+        val screenAspectRatio = aspectRatio(
+            mainBinding.previewView.width,
+            mainBinding.previewView.height
+        )
+        val rotation = mainBinding.previewView.display.rotation
+
+        val resolutionSelector = ResolutionSelector.Builder()
+            .setAspectRatioStrategy(
+                AspectRatioStrategy(
+                    screenAspectRatio,
+                    AspectRatioStrategy.FALLBACK_RULE_AUTO
+                )
+            )
+            .build()
+
+        val preview = Preview.Builder()
+            .setResolutionSelector(resolutionSelector)
+            .setTargetRotation(rotation)
+            .build()
+            .also {
+                it.setSurfaceProvider(mainBinding.previewView.surfaceProvider)
+            }
+
+        imageCapture = ImageCapture.Builder()
+            .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
+            .setResolutionSelector(resolutionSelector)
+            .setTargetRotation(rotation)
+            .build()
+
+        cameraSelector = CameraSelector.Builder()
+            .requireLensFacing(lensFacing)
+            .build()
+
+        try {
+            cameraProvider.unbindAll()
+
+            camera = cameraProvider.bindToLifecycle(
+                this, cameraSelector,preview,imageCapture
+            )
+        }catch (e:Exception){
+            e.printStackTrace()
+        }
     }
 
+    private fun setFlashIcon(camera: Camera) {
+        if (camera.cameraInfo.hasFlashUnit()){
+            if (camera.cameraInfo.torchState.value == 0){
+                camera.cameraControl.enableTorch(true)
+                mainBinding.flashToggleIB.setImageResource(R.drawable.flash_foreground)
+            }else{
+                camera.cameraControl.enableTorch(false)
+                mainBinding.flashToggleIB.setImageResource(R.drawable.flash_on_foreground)
+            }
+        }else{
+            Toast.makeText(
+                this,
+                "Flash is not Available",
+                Toast.LENGTH_LONG
+            ).show()
+            mainBinding.flashToggleIB.isEnabled = false
+        }
+    }
+
+    private fun takePhoto(){
+
+        val imageFolder = File(
+            Environment.DIRECTORY_PICTURES, "images"
+        )
+        if (!imageFolder.exists()){
+            imageFolder.mkdir()
+        }
+
+        val fileName = SimpleDateFormat("yyyy-MM-dd HH:MM:ss", Locale.getDefault())
+            .format(System.currentTimeMillis()) + ".jpg"
+        val imageFile = File(imageFolder,fileName)
+        val outputOption = OutputFileOptions.Builder(imageFile).build()
+
+        imageCapture.takePicture(
+            outputOption,
+            ContextCompat.getMainExecutor(this),
+            object : ImageCapture.OnImageCapturedCallback{
+
+            }
+        )
+    }
 
 }
