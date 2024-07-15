@@ -12,6 +12,7 @@ import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCapture.OutputFileOptions
+import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
 import androidx.camera.core.resolutionselector.AspectRatioStrategy
 import androidx.camera.core.resolutionselector.ResolutionSelector
@@ -136,11 +137,15 @@ class MainActivity : ComponentActivity() {
                     }
                     if (someDenied) {
                         //open setting
-                        openAppSettings(this)
+                        appSettingOpen(this)
                     } else {
                         //show warning
-                        showPermissionDeniedDialog(this) { _, _ ->
-                            checkMultiplePermission()
+                        warningPermissionDialog(this) { _: DialogInterface, which: Int ->
+                            when(which){
+                                DialogInterface.BUTTON_POSITIVE ->
+                                checkMultiplePermission()
+                            }
+
                         }
                     }
                 }
@@ -246,7 +251,23 @@ class MainActivity : ComponentActivity() {
         imageCapture.takePicture(
             outputOption,
             ContextCompat.getMainExecutor(this),
-            object : ImageCapture.OnImageCapturedCallback{
+            object : ImageCapture.OnImageCapturedCallback(),ImageCapture.OnImageSavedCallback{
+                override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                    val message = "Photo saved ${outputFileResults.savedUri}"
+                    Toast.makeText(
+                        this@MainActivity,
+                        message,
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+
+                override fun onError(exception: ImageCaptureException) {
+                    Toast.makeText(
+                        this@MainActivity,
+                        exception.message.toString(),
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
 
             }
         )
